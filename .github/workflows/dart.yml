@@ -55,7 +55,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: build/app/outputs/apk/release/*.apk
-          tag: v1.0.${{ github.run_number }}
+          tag: v1.0.${{ github.run_id }}
           token: ${{ secrets.TOKEN }}
 
       # Upload the APK to firbase app distribution
