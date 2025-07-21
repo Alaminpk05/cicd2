@@ -1,69 +1,42 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-name: Dart
+name: iOS-ipa-build
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  build-ios:
+    name: 🎉 iOS Build
+    runs-on: macos-latest
     steps:
-      - name: Clone repository
-        uses: actions/checkout@v4
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
+      - uses: actions/checkout@v3
+
+      - uses: subosito/flutter-action@v2
         with:
-          channel: stable
-          flutter-version: 3.32.0
-      - run: flutter --version
+          channel: 'stable'
+          architecture: x64
+      - run: flutter pub get
+      
 
-      # Note: This workflow uses the latest stable version of the Dart SDK.
-      # You can specify other versions if desired, see documentation here:
-      # https://github.com/dart-lang/setup-dart/blob/main/README.md
-      # - uses: dart-lang/setup-dart@v1
-      - uses: dart-lang/setup-dart@9a04e6d73cca37bd455e0608d7e5092f881fd603
+      - run: pod repo update
+        working-directory: ios
 
-      - name: Install dependencies
-        run: flutter pub get
-      - name: Build APK
-        run: flutter build apk
+      - run: flutter build ios --release --no-codesign
 
-      # Uncomment this step to verify the use of 'dart format' on each commit.
-      # - name: Verify formatting
-      #   run: dart format --output=none --set-exit-if-changed .
+      - run: mkdir Payload
+        working-directory: build/ios/iphoneos
 
-      # Consider passing '--fatal-infos' for slightly stricter analysis.
-      # - name: Analyze Flutter project
-      #   run: flutter analyze
+      - run: mv Runner.app/ Payload
+        working-directory: build/ios/iphoneos
 
+      - name: Zip output
+        run: zip -qq -r -9 FlutterIpaExport.ipa Payload
+        working-directory: build/ios/iphoneos
 
-      # Your project will need to have tests in test/ and a dependency on
-      # package:test for this step to succeed. Note that Flutter projects will
-      # want to change this to 'flutter test'.
-      # - name: Run Flutter tests
-      #   run: flutter test
-
-      - name: Push to Releases
-        uses: ncipollo/release-action@v1
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          artifacts: build/app/outputs/apk/release/*.apk
-          tag: v1.0.${{ github.run_number }}
-          token: ${{ secrets.TOKEN }}
-
-      # Upload the APK to firbase app distribution
-      - name: Upload artifact to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          token: ${{ secrets.FIREBASE_TOKEN }}
-          groups: testers
-          file: build/app/outputs/flutter-apk/app-release.apk
-
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/ios/iphoneos/FlutterIpaExport.ipa
+          tag: v1.0
+          overwrite: true
+          body: "This is first release"
